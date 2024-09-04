@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(pillar_detect)
 
-set(CMAKE_BUILD_TYPE "debug")
-set(CMAKE_CXX_FLAGS "-std=c++14")
+set(CMAKE_BUILD_TYPE "relase")
+set(CMAKE_CXX_FLAGS "-std=c++17")
 
 
 set(Torch_DIR /home/data/code/catkin_ws/lib/libtorch/share/cmake/Torch)  #解压的libtorch的绝对路径
@@ -36,8 +36,6 @@ catkin_package(
   std_msgs
   sensor_msgs
 )
-
-message(${catkin_LIBRARIES} )
 
 add_executable(demo demo.cpp /home/data/code/catkin_ws/src/pillar_detect/src/DetectNet.cpp)
 target_link_libraries(demo ${PCL_LIBRARIES} ${catkin_LIBRARIES} ${TORCH_LIBRARIES})

@@ -25,11 +25,12 @@ private:
         size_t operator()(const Eigen::Vector2i &index) const { return index(0) ^ index(1); }
     };
     std::unordered_map<Eigen::Vector2i, pcl::PointCloud<PointType>, Vector2iHash> pillars_;
-
-
+    std::vector<Eigen::Vector2i> pillar_indices_;
 
     torch::Tensor pillar_features_tensor_;
-    std::vector<Eigen::Vector2i> pillar_indices_;
+    torch::Tensor index_tensor_;
+
+    torch::Device device = torch::Device(torch::kCUDA);
 
 public:
     PillarFeatureGenerate() {};
@@ -47,8 +48,7 @@ public:
                                (point.y() - Config::roi_y_min) / Config::pillar_y_size);
     };
 
-
-    void Generate(pcl::PointCloud<PointType> cloud)
+    std::pair<torch::Tensor, torch::Tensor> Generate(pcl::PointCloud<PointType> cloud)
     {
         pillars_.clear();
         for (const auto &point : cloud)
@@ -100,12 +100,12 @@ public:
         }
         // n * 32 * 9 的torch
         int n = pillar_features_.size() / Config::max_nums_in_pillar;
-        pillar_features_tensor_ =
-            torch::from_blob(reinterpret_cast<float *>(pillar_features_.data()),
-                             {n, Config::max_nums_in_pillar, Config::pillar_feature_dim}, torch::kFloat32);
+        c10::IntArrayRef sizes = {n, Config::max_nums_in_pillar, Config::pillar_feature_dim};
+        pillar_features_tensor_ = torch::from_blob(pillar_features_.data(), sizes, torch::kFloat32).to(device);
+
+        c10::IntArrayRef index_sizes = {(int)pillar_indices_.size(), 2};
+        index_tensor_ = torch::from_blob(pillar_indices_.data(), index_sizes, torch::kInt32).to(device);
+
+        return {pillar_features_tensor_, index_tensor_};
     };
-
-    torch::Tensor &getPillars() { return pillar_features_tensor_; };
-
-    std::vector<Eigen::Vector2i> &getPillarIndices() { return pillar_indices_; };
 };
