@@ -27,10 +27,11 @@ private:
 public:
     Detector()
     {
-        optimizer = std::make_unique<torch::optim::Adam>(model->parameters(), torch::optim::AdamOptions(0.0001));
+        optimizer = std::make_unique<torch::optim::Adam>(model->parameters(), torch::optim::AdamOptions(0.00001));
     }
 
     void train(CloudType &cloud, std::vector<Object> objs_gt);
+    std::vector<Object> infer(CloudType &cloud);
     void save(const std::string &path);
     void load(const std::string &path);
 };

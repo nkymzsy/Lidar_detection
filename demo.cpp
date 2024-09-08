@@ -52,10 +52,20 @@ void publish3DBoundingBox(std::vector<Object> &objects, ros::Publisher &marker_p
         marker.lifetime = ros::Duration(0);
 
         // 设置颜色
-        marker.color.r = 1.0f;
-        marker.color.g = 1.0f;
-        marker.color.b = 0.0f;
-        marker.color.a = 0.7f; // 半透明
+        if(object.lable == 0)
+        {
+            marker.color.r = 1.0f;
+            marker.color.g = 1.0f;
+            marker.color.b = 0.0f;
+            marker.color.a = 0.6f; // 半透明
+        }
+        else
+        {
+            marker.color.r = 0.0f;
+            marker.color.g = 1.0f;
+            marker.color.b = 0.0f;
+            marker.color.a = 0.6f;
+        }
 
         // 设置尺寸
         marker.scale.x = object.dimensions[0]; // 长度
@@ -90,7 +100,7 @@ int main(int argc, char **argv)
 
     ros::Publisher pub = nh.advertise<sensor_msgs::PointCloud2>("point_cloud_topic", 10);
     ros::Publisher box_pub = nh.advertise<visualization_msgs::MarkerArray>("bbox", 10);
-    ros::Rate loop_rate(1000);
+    ros::Rate loop_rate(10);
 
     int loop = 0;
     while (ros::ok())
@@ -105,17 +115,18 @@ int main(int argc, char **argv)
         loop++;
         while (ros::ok())
         {
-            // ros::spinOnce();
             auto &data = kittiDataReader.getOnceData();
             if (!data.dataIsOk)
                 break;
-            // publishPointCloud(data.cloud, pub);
-            // publish3DBoundingBox(data.objects, box_pub);
-            std::cout <<"loop:"<<loop << " frame: " << i << "  "<< data.objects.size() <<" ";
-            denet.train(data.cloud, data.objects);
 
-            // ros::spinOnce();
-            // loop_rate.sleep();
+            std::cout <<"loop:"<<loop << " frame: " << i << "  "<< data.objects.size() <<" ";
+
+            auto obj = denet.infer(data.cloud);
+            publishPointCloud(data.cloud, pub);
+            publish3DBoundingBox(obj, box_pub);
+            denet.train(data.cloud, data.objects);
+            ros::spinOnce();
+            loop_rate.sleep();
             if (i++ % 20 == 0)
             {
                 denet.save("/home/data/code/catkin_ws/src/pillar_detect/model.pt");
