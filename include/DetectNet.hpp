@@ -1,33 +1,25 @@
 #pragma once
 
 #include "model/Model.hpp"
+#include "model/Loss.hpp"
 
 class Detector
 {
 private:
     using CloudType = pcl::PointCloud<PillarFeatureGenerate::PointType>;
     DetectNet model;
+    Loss loss_function;
+    
     std::vector<Object> objs_infer;
     std::unique_ptr<torch::optim::Adam> optimizer;
     torch::Device device = torch::Device(torch::kCUDA);
 
-    struct GroundTruth
-    {
-        torch::Tensor mask_map;
-        torch::Tensor heat_map;
-        torch::Tensor mean_map;
-        torch::Tensor dim_map;
-        torch::Tensor rot_map;
-    } ground_truth;
-
-    void GenerateHeatMapGroundturth(std::vector<Object> objs_gt);
-    torch::Tensor HeatmapLoss(torch::Tensor heatmap);
-    torch::Tensor BoxLoss(torch::Tensor mean_map, torch::Tensor dim_map, torch::Tensor rot_map);
+    std::unordered_map<std::string, torch::Tensor> GenerateHeatMapGroundturth(std::vector<Object> objs_gt);
 
 public:
     Detector()
     {
-        optimizer = std::make_unique<torch::optim::Adam>(model->parameters(), torch::optim::AdamOptions(0.00001));
+        optimizer = std::make_unique<torch::optim::Adam>(model->parameters(), torch::optim::AdamOptions(1e-4));
     }
 
     void train(CloudType &cloud, std::vector<Object> objs_gt);

@@ -23,13 +23,20 @@ private:
 };
 
 /// 从std::vector<Object> objs_gt生成heatmap真值
-void Detector::GenerateHeatMapGroundturth(std::vector<Object> objs_gt)
+std::unordered_map<std::string, torch::Tensor> Detector::GenerateHeatMapGroundturth(std::vector<Object> objs_gt)
 {
-    ground_truth.heat_map = torch::zeros({Config::num_class, Config::bev_w, Config::bev_h});
-    ground_truth.mean_map = torch::zeros({3, Config::bev_w, Config::bev_h});
-    ground_truth.dim_map = torch::zeros({3, Config::bev_w, Config::bev_h});
-    ground_truth.rot_map = torch::zeros({2, Config::bev_w, Config::bev_h});
-    ground_truth.mask_map = torch::zeros({Config::bev_w, Config::bev_h});
+    std::unordered_map<std::string, torch::Tensor> ground_truth = {
+        {"heatmap", torch::zeros({Config::num_class, Config::bev_w, Config::bev_h})},
+        {"center", torch::zeros({3, Config::bev_w, Config::bev_h})},
+        {"dim", torch::zeros({3, Config::bev_w, Config::bev_h})},
+        {"rot", torch::zeros({2, Config::bev_w, Config::bev_h})},
+        {"validmask", torch::zeros({Config::bev_w, Config::bev_h})}};
+
+    auto &heat_map = ground_truth["heatmap"];
+    auto &mean_map = ground_truth["center"];
+    auto &dim_map = ground_truth["dim"];
+    auto &rot_map = ground_truth["rot"];
+    auto &mask_map = ground_truth["validmask"];
 
     for (auto &obj : objs_gt)
     {
@@ -57,68 +64,48 @@ void Detector::GenerateHeatMapGroundturth(std::vector<Object> objs_gt)
                     continue;
 
                 float p = gaussian(Eigen::Vector2f(detal_i, detal_j));
-                if (p > ground_truth.heat_map[lable][i][j].item<float>())
+                if (p > heat_map[lable][i][j].item<float>())
                 {
-                    ground_truth.heat_map[lable][i][j] = p;
+                    heat_map[lable][i][j] = p;
 
-                    ground_truth.mean_map[0][i][j] = obj.position.x();
-                    ground_truth.mean_map[1][i][j] = obj.position.y();
-                    ground_truth.mean_map[2][i][j] = obj.position.z();
+                    if (fabs(i - center.x()) < 3 && fabs(j - center.y()) < 3)
+                    {
+                        mean_map[0][i][j] = obj.position.x();
+                        mean_map[1][i][j] = obj.position.y();
+                        mean_map[2][i][j] = obj.position.z();
 
-                    ground_truth.dim_map[0][i][j] = obj.dimensions.x();
-                    ground_truth.dim_map[1][i][j] = obj.dimensions.y();
-                    ground_truth.dim_map[2][i][j] = obj.dimensions.z();
+                        dim_map[0][i][j] = obj.dimensions.x();
+                        dim_map[1][i][j] = obj.dimensions.y();
+                        dim_map[2][i][j] = obj.dimensions.z();
 
-                    ground_truth.rot_map[0][i][j] = sin(obj.heading);
-                    ground_truth.rot_map[1][i][j] = cos(obj.heading);
-                    if (fabs(i - center.x()) < 2 && fabs(j - center.y()) < 2)
-                        ground_truth.mask_map[i][j] = p;
+                        rot_map[0][i][j] = sin(obj.heading);
+                        rot_map[1][i][j] = cos(obj.heading);
+                        mask_map[i][j] = p;
+                    }
                 }
             }
         }
     }
 
-    ground_truth.heat_map.to(device);
-    ground_truth.mean_map.to(device);
-    ground_truth.dim_map.to(device);
-    ground_truth.rot_map.to(device);
-    ground_truth.mask_map.to(device);
+    heat_map = heat_map.unsqueeze(0);
+    mean_map = mean_map.unsqueeze(0);
+    dim_map = dim_map.unsqueeze(0);
+    rot_map = rot_map.unsqueeze(0);
+    mask_map = mask_map.unsqueeze(0);
+    return ground_truth;
 };
 
-torch::Tensor Detector::HeatmapLoss(torch::Tensor heatmap)
-{
-    auto layer_output = heatmap.flatten().to(device);
-    auto layer_target = ground_truth.heat_map.flatten().to(device);
-    auto layer_loss = torch::square((layer_output - layer_target)).sum();
-    return layer_loss;
-}
-
-torch::Tensor Detector::BoxLoss(torch::Tensor mean_map, torch::Tensor dim_map, torch::Tensor rot_map)
-{
-    torch::Tensor mask_3 = ground_truth.mask_map.flatten().tile(3).to(device);
-    torch::Tensor mask_2 = ground_truth.mask_map.flatten().tile(2).to(device);
-    auto mean_loss =
-        torch::square(2 * (mean_map.flatten().to(device) - ground_truth.mean_map.flatten().to(device)) * mask_3).sum();
-    auto dim_loss =
-        torch::square(1.5 * (dim_map.flatten().to(device) - ground_truth.dim_map.flatten().to(device)) * mask_3).sum();
-    auto rot_loss =
-        torch::square(2 * (rot_map.flatten().to(device) - ground_truth.rot_map.flatten().to(device)) * mask_2).sum();
-    return mean_loss + dim_loss + rot_loss;
-}
 
 void Detector::train(CloudType &cloud, std::vector<Object> objs_gt)
 {
     auto headmap = model->forward(cloud);
 
-    GenerateHeatMapGroundturth(objs_gt);
-    auto loss = HeatmapLoss(headmap["heatmap"][0]);
-    auto loss_box = BoxLoss(headmap["center"], headmap["dim"], headmap["rot"]);
-    auto loss_total = 10 * loss + loss_box;
-
-    std::cout << "loss: " << loss.item<float>() << " loss_box: " << loss_box.item<float>() << std::endl;
+    auto groundtruth = GenerateHeatMapGroundturth(objs_gt);
+    auto loss = loss_function.forward(headmap, groundtruth);
+    std::cout << "loss: " << loss.item<float>() << std::endl;
 
     optimizer->zero_grad();
-    loss_total.backward();
+    loss.backward();
     optimizer->step();
 }
 
@@ -239,8 +226,8 @@ std::vector<Object> Detector::infer(CloudType &cloud)
     auto map = model->forward(cloud);
     auto heatmap = map["heatmap"][0];
 
-    auto car = findLocalMaxima(heatmap[0], 0.8);
-    auto poepole = findLocalMaxima(heatmap[1], 0.8);
+    auto car = findLocalMaxima(heatmap[0], 0.5);
+    auto poepole = findLocalMaxima(heatmap[1], 0.5);
 
     std::vector<Object> objs(UnpackObject(0, car, map["center"][0].to(torch::kCPU), map["dim"][0].to(torch::kCPU),
                                           map["rot"][0].to(torch::kCPU)));

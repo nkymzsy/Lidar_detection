@@ -7,18 +7,18 @@
 
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <tf/tf.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
-#include <tf/tf.h>
 
-#include "tools/KittiReader.hpp"
 #include "include/DetectNet.hpp"
+#include "tools/KittiReader.hpp"
 
 void publishPointCloud(pcl::PointCloud<pcl::PointXYZI> &cloud, ros::Publisher &pub)
 {
     sensor_msgs::PointCloud2 cloud_msg;
     pcl::toROSMsg(cloud, cloud_msg);
-    cloud_msg.header.frame_id = "world"; 
+    cloud_msg.header.frame_id = "world";
     cloud_msg.header.stamp = ros::Time::now();
     pub.publish(cloud_msg);
 }
@@ -43,7 +43,7 @@ void publish3DBoundingBox(std::vector<Object> &objects, ros::Publisher &marker_p
     for (const auto &object : objects)
     {
         visualization_msgs::Marker marker;
-        marker.header.frame_id =  "world";
+        marker.header.frame_id = "world";
         marker.header.stamp = ros::Time::now();
         marker.ns = "3d_boxes";
         marker.id = i++;
@@ -52,7 +52,7 @@ void publish3DBoundingBox(std::vector<Object> &objects, ros::Publisher &marker_p
         marker.lifetime = ros::Duration(0);
 
         // 设置颜色
-        if(object.lable == 0)
+        if (object.lable == 0)
         {
             marker.color.r = 1.0f;
             marker.color.g = 1.0f;
@@ -80,7 +80,7 @@ void publish3DBoundingBox(std::vector<Object> &objects, ros::Publisher &marker_p
         marker.pose.position = center;
 
         // 设置方向
-        tf::Quaternion quaternion = computeQuaternionFromHeading(-object.heading); 
+        tf::Quaternion quaternion = computeQuaternionFromHeading(-object.heading);
         geometry_msgs::Quaternion orientation;
         tf::quaternionTFToMsg(quaternion, orientation);
         marker.pose.orientation = orientation;
@@ -103,14 +103,13 @@ int main(int argc, char **argv)
     ros::Rate loop_rate(10);
 
     int loop = 0;
+    Detector denet;
+    denet.load("/home/data/code/catkin_ws/src/pillar_detect/model.pt");
     while (ros::ok())
     {
-        Detector denet;
-        denet.load("/home/data/code/catkin_ws/src/pillar_detect/model.pt");
-
-       KittiDataReader kittiDataReader("/home/data/dataset/KITTIDetection/data_object_velodyne/training/velodyne/",
-                                    "/home/data/dataset/KITTIDetection/training/label_2/",
-                                    "/home/data/dataset/KITTIDetection/calib/");
+        KittiDataReader kittiDataReader("/home/data/dataset/KITTIDetection/data_object_velodyne/training/velodyne/",
+                                        "/home/data/dataset/KITTIDetection/training/label_2/",
+                                        "/home/data/dataset/KITTIDetection/calib/");
         int i = 0;
         loop++;
         while (ros::ok())
@@ -119,16 +118,17 @@ int main(int argc, char **argv)
             if (!data.dataIsOk)
                 break;
 
-            std::cout <<"loop:"<<loop << " frame: " << i << "  "<< data.objects.size() <<" ";
+            std::cout << "loop:" << loop << " frame: " << i << "  " << data.objects.size() << " ";
 
-            auto obj = denet.infer(data.cloud);
-            publishPointCloud(data.cloud, pub);
-            publish3DBoundingBox(obj, box_pub);
             denet.train(data.cloud, data.objects);
-            ros::spinOnce();
-            loop_rate.sleep();
-            if (i++ % 20 == 0)
+
+            if (i++ % 200 == 0)
             {
+                // auto obj = denet.infer(data.cloud);
+                // publish3DBoundingBox(obj, box_pub);
+                // publishPointCloud(data.cloud, pub);
+                // ros::spinOnce();
+                // loop_rate.sleep();
                 denet.save("/home/data/code/catkin_ws/src/pillar_detect/model.pt");
             }
         }
