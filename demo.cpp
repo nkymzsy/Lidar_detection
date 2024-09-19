@@ -100,39 +100,22 @@ int main(int argc, char **argv)
 
     ros::Publisher pub = nh.advertise<sensor_msgs::PointCloud2>("point_cloud_topic", 10);
     ros::Publisher box_pub = nh.advertise<visualization_msgs::MarkerArray>("bbox", 10);
-    ros::Rate loop_rate(10);
+    ros::Rate loop_rate(0.5);
 
     int loop = 0;
     Detector denet;
-    denet.load("/home/data/code/catkin_ws/src/pillar_detect/model.pt");
+    denet.load("/home/data/code/catkin_ws/src/pillar_detect/pt/model_20_loop.pt");
     while (ros::ok())
     {
-        KittiDataReader kittiDataReader("/home/data/dataset/KITTIDetection/data_object_velodyne/training/velodyne/",
-                                        "/home/data/dataset/KITTIDetection/training/label_2/",
-                                        "/home/data/dataset/KITTIDetection/calib/");
-        int i = 0;
-        loop++;
-        while (ros::ok())
-        {
-            auto &data = kittiDataReader.getOnceData();
-            if (!data.dataIsOk)
-                break;
+        auto &data = kittiDataReader.getOnceData();
+        if (!data.dataIsOk)
+            break;
 
-            std::cout << "loop:" << loop << " frame: " << i << "  " << data.objects.size() << " ";
-
-            denet.train(data.cloud, data.objects);
-
-            if (i++ % 200 == 0)
-            {
-                // auto obj = denet.infer(data.cloud);
-                // publish3DBoundingBox(obj, box_pub);
-                // publishPointCloud(data.cloud, pub);
-                // ros::spinOnce();
-                // loop_rate.sleep();
-                denet.save("/home/data/code/catkin_ws/src/pillar_detect/model.pt");
-            }
-        }
-        denet.save("/home/data/code/catkin_ws/src/pillar_detect/model.pt");
+        auto obj = denet.infer(data.cloud);
+        publish3DBoundingBox(obj, box_pub);
+        publishPointCloud(data.cloud, pub);
+        ros::spinOnce();
+        loop_rate.sleep();
     }
 
     return 0;

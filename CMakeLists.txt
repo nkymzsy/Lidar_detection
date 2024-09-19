@@ -39,3 +39,6 @@ catkin_package(
 
 add_executable(demo demo.cpp /home/data/code/catkin_ws/src/pillar_detect/src/DetectNet.cpp)
 target_link_libraries(demo ${PCL_LIBRARIES} ${catkin_LIBRARIES} ${TORCH_LIBRARIES})
+
+add_executable(train train.cpp /home/data/code/catkin_ws/src/pillar_detect/src/DetectNet.cpp)
+target_link_libraries(train ${PCL_LIBRARIES} ${catkin_LIBRARIES} ${TORCH_LIBRARIES})

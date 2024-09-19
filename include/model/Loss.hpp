@@ -64,7 +64,7 @@ public:
 private:
     float alpha = 3;
     float beta = 3;
-    float cls_w = 2, mean_w = 1, dim_w = 1, rot_w = 1;
+    float cls_w = 2, mean_w = 1, dim_w = 1, rot_w = 2;
     torch::nn::SmoothL1Loss smooth_l1_loss;
     torch::Device device = torch::Device(torch::kCUDA);
 };

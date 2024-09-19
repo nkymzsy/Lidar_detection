@@ -223,11 +223,12 @@ std::vector<Object> UnpackObject(int lable, std::vector<Eigen::Vector2i> indexs,
 
 std::vector<Object> Detector::infer(CloudType &cloud)
 {
+    model->eval();
     auto map = model->forward(cloud);
     auto heatmap = map["heatmap"][0];
 
-    auto car = findLocalMaxima(heatmap[0], 0.5);
-    auto poepole = findLocalMaxima(heatmap[1], 0.5);
+    auto car = findLocalMaxima(heatmap[0], -1);
+    auto poepole = findLocalMaxima(heatmap[1], -1);
 
     std::vector<Object> objs(UnpackObject(0, car, map["center"][0].to(torch::kCPU), map["dim"][0].to(torch::kCPU),
                                           map["rot"][0].to(torch::kCPU)));
