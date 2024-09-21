@@ -1,29 +1,44 @@
 #pragma once
 
-#include "model/Model.hpp"
 #include "model/Loss.hpp"
+#include "model/Model.hpp"
 
 class Detector
 {
 private:
     using CloudType = pcl::PointCloud<PillarFeatureGenerate::PointType>;
+    using TensorMap = std::unordered_map<std::string, torch::Tensor>;
+
+public:
+    enum class Mode
+    {
+        TRAIN,
+        INFERENCE
+    };
+
+    Detector(Mode mode = Mode::TRAIN) : mode_(mode)
+    {
+        if (mode == Mode::TRAIN)
+            model->train();
+        else
+            model->eval();
+
+        optimizer = std::make_unique<torch::optim::Adam>(model->parameters(), torch::optim::AdamOptions(1e-7));
+    }
+
+    void Train(CloudType &cloud, const std::vector<Object> &objs_gt);
+    void Infer(CloudType &cloud, std::vector<Object> &objs_infer, float theshold = 0.3);
+    void SaveModeParamters(const std::string &path);
+    void LoadModeParamters(const std::string &path);
+
+private:
     DetectNet model;
     Loss loss_function;
-    
+    Mode mode_;
+
     std::vector<Object> objs_infer;
     std::unique_ptr<torch::optim::Adam> optimizer;
     torch::Device device = torch::Device(torch::kCUDA);
 
-    std::unordered_map<std::string, torch::Tensor> GenerateHeatMapGroundturth(std::vector<Object> objs_gt);
-
-public:
-    Detector()
-    {
-        optimizer = std::make_unique<torch::optim::Adam>(model->parameters(), torch::optim::AdamOptions(1e-7));
-    }
-
-    void train(CloudType &cloud, std::vector<Object> objs_gt);
-    std::vector<Object> infer(CloudType &cloud);
-    void save(const std::string &path);
-    void load(const std::string &path);
+    void BuildDetectionGroundTruth(const std::vector<Object> &objs, TensorMap &ground_truth);
 };

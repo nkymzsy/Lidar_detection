@@ -48,7 +48,7 @@ public:
                                (point.y() - Config::roi_y_min) / Config::pillar_y_size);
     };
 
-    std::pair<torch::Tensor, torch::Tensor> Generate(pcl::PointCloud<PointType> cloud)
+    std::pair<torch::Tensor, torch::Tensor> Generate(const pcl::PointCloud<PointType> &cloud)
     {
         pillars_.clear();
         for (const auto &point : cloud)

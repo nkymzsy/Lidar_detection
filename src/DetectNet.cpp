@@ -23,9 +23,10 @@ private:
 };
 
 /// 从std::vector<Object> objs_gt生成heatmap真值
-std::unordered_map<std::string, torch::Tensor> Detector::GenerateHeatMapGroundturth(std::vector<Object> objs_gt)
+void Detector::BuildDetectionGroundTruth(const std::vector<Object> &objs,
+                                        TensorMap &ground_truth)
 {
-    std::unordered_map<std::string, torch::Tensor> ground_truth = {
+    ground_truth = {
         {"heatmap", torch::zeros({Config::num_class, Config::bev_w, Config::bev_h})},
         {"center", torch::zeros({3, Config::bev_w, Config::bev_h})},
         {"dim", torch::zeros({3, Config::bev_w, Config::bev_h})},
@@ -38,13 +39,13 @@ std::unordered_map<std::string, torch::Tensor> Detector::GenerateHeatMapGroundtu
     auto &rot_map = ground_truth["rot"];
     auto &mask_map = ground_truth["validmask"];
 
-    for (auto &obj : objs_gt)
+    for (auto &obj : objs)
     {
-        int lable = 0;
-        if (obj.lable == 0 || obj.lable == 1 || obj.lable == 2)
-            lable = 0;
-        else if (obj.lable == 3 || obj.lable == 4 || obj.lable == 5)
-            lable = 1;
+        int label = 0;
+        if (obj.label == 0 || obj.label == 1 || obj.label == 2)
+            label = 0;
+        else if (obj.label == 3 || obj.label == 4 || obj.label == 5)
+            label = 1;
         else
             continue;
 
@@ -64,9 +65,9 @@ std::unordered_map<std::string, torch::Tensor> Detector::GenerateHeatMapGroundtu
                     continue;
 
                 float p = gaussian(Eigen::Vector2f(detal_i, detal_j));
-                if (p > heat_map[lable][i][j].item<float>())
+                if (p > heat_map[label][i][j].item<float>())
                 {
-                    heat_map[lable][i][j] = p;
+                    heat_map[label][i][j] = p;
 
                     if (fabs(i - center.x()) < 3 && fabs(j - center.y()) < 3)
                     {
@@ -92,15 +93,15 @@ std::unordered_map<std::string, torch::Tensor> Detector::GenerateHeatMapGroundtu
     dim_map = dim_map.unsqueeze(0);
     rot_map = rot_map.unsqueeze(0);
     mask_map = mask_map.unsqueeze(0);
-    return ground_truth;
 };
 
-
-void Detector::train(CloudType &cloud, std::vector<Object> objs_gt)
+void Detector::Train(CloudType &cloud, const std::vector<Object> &objs_gt)
 {
+    TensorMap groundtruth;
+    BuildDetectionGroundTruth(objs_gt, groundtruth);
+
     auto headmap = model->forward(cloud);
 
-    auto groundtruth = GenerateHeatMapGroundturth(objs_gt);
     auto loss = loss_function.forward(headmap, groundtruth);
     std::cout << "loss: " << loss.item<float>() << std::endl;
 
@@ -110,131 +111,63 @@ void Detector::train(CloudType &cloud, std::vector<Object> objs_gt)
 }
 
 // 保存模型参数
-void Detector::save(const std::string &path) { torch::save(model, path); }
+void Detector::SaveModeParamters(const std::string &path) { torch::save(model, path); }
 
 // 导入模型 参数
-void Detector::load(const std::string &path) { torch::load(model, path); }
+void Detector::LoadModeParamters(const std::string &path) { torch::load(model, path); }
 
-// 定义一个函数来获取满足条件的点的索引
-std::vector<Eigen::Vector2i> findLocalMaxima(torch::Tensor tensor, double threshold = 0.6)
+Eigen::Vector3f Transform3DTensor2Eigen(const torch::Tensor &t)
 {
-    std::vector<Eigen::Vector2i> result;
-    int64_t n = tensor.size(0);
-    int64_t m = tensor.size(1);
-
-    // 遍历每个元素
-    for (int64_t i = 1; i < n - 1; ++i)
-    {
-        for (int64_t j = 1; j < m - 1; ++j)
-        {
-            float value = tensor[i][j].item<float>();
-            if (value <= threshold)
-                continue;
-
-            bool isLocalMax = true;
-            // 检查3x3邻域内的所有点
-            for (int64_t di = -1; di <= 1; ++di)
-            {
-                for (int64_t dj = -1; dj <= 1; ++dj)
-                {
-                    if (tensor[i + di][j + dj].item<float>() > value)
-                    {
-                        isLocalMax = false;
-                        break;
-                    }
-                }
-                if (!isLocalMax)
-                    break;
-            }
-
-            // 如果当前点是局部极大值，则添加到结果列表
-            if (isLocalMax)
-            {
-                result.emplace_back(i, j);
-            }
-        }
-    }
-
-    return result;
+    return Eigen::Vector3f(t[0].item<float>(), t[1].item<float>(), t[2].item<float>());
 }
 
-// 定义一个函数来从3*n*m的Tensor中筛选出指定索引的三维值
-Eigen::Vector3f getValuesFromTensor(const at::Tensor &tensor, const Eigen::Vector2i &index)
+/**
+ * @brief 将检测结果追加到对象列表中。
+ *
+ * @param output 包含检测结果的字典，键为 "center", "dim", "rot"，值为对应的张量。
+ * @param indexs 索引张量，用于从输出张量中选择特定元素。
+ * @param label 对象标签。
+ * @param objs 存储对象的容器，用于追加新对象。
+ */
+void AppendObject(std::unordered_map<std::string, torch::Tensor> &output, const torch::Tensor &indexs, int label,
+                  std::vector<Object> &objs)
 {
-    int64_t n = tensor.size(1); // 获取第二维度的大小
-    int64_t m = tensor.size(2); // 获取第三维度的大小
+    auto &means = output["center"];
+    auto &dims = output["dim"];
+    auto &rots = output["rot"];
 
-    // 检查索引是否有效
-    int64_t x = index(0);
-    int64_t y = index(1);
-    if (x < 0 || x >= n || y < 0 || y >= m)
+    for (int i = 0; i < indexs.size(0); i++)
     {
-        throw std::out_of_range("Index out of bounds");
+        int x = indexs[i][0].item<int>();
+        int y = indexs[i][1].item<int>();
+        float heading = atan2(rots[0][x][y][0].item<float>(), rots[0][x][y][1].item<float>());
+        objs.emplace_back(label, heading, Transform3DTensor2Eigen(means[0][x][y]),
+                          Transform3DTensor2Eigen(dims[0][x][y]));
     }
-
-    // 提取三维值
-    at::Tensor values = tensor.select(1, x).select(1, y);
-
-    // 将三个值存储在 Eigen::Vector3f 中
-    Eigen::Vector3f result;
-    result << values[0].item<float>(), values[1].item<float>(), values[2].item<float>();
-
-    return result;
 }
 
-// 从tensor中解包角度
-float getRotFromTensor(const at::Tensor &tensor, const Eigen::Vector2i &index)
+void Detector::Infer(CloudType &cloud, std::vector<Object> &objs, float theshold)
 {
-    int64_t n = tensor.size(1); // 获取第二维度的大小
-    int64_t m = tensor.size(2); // 获取第三维度的大小
+    // 1. 得到网络输出结果
+    auto output = model->forward(cloud);
 
-    // 检查索引是否有效
-    int64_t x = index(0);
-    int64_t y = index(1);
-    if (x < 0 || x >= n || y < 0 || y >= m)
-    {
-        throw std::out_of_range("Index out of bounds");
-    }
+    // 2. 做非极大值抑制
+    auto heatmap = output["heatmap"];
+    auto max_pooled =
+        torch::nn::functional::max_pool2d(heatmap, torch::nn::functional::MaxPool2dFuncOptions(3).stride(1).padding(1));
+    heatmap = (heatmap >= max_pooled).toType(torch::kFloat32) * heatmap;
 
-    at::Tensor values = tensor.select(1, x).select(1, y);
-    float sinx = values[0].item<float>();
-    float cosx = values[1].item<float>();
+    // 3. 提取出满足条件的索引
+    auto car_indexs = torch::nonzero(heatmap[0][0].gt(theshold)).to(torch::kCPU);
+    auto people_indexs = torch::nonzero(heatmap[0][1].gt(theshold)).to(torch::kCPU);
 
-    // 求解角度
-    float result = atan2(sinx, cosx);
-    return result;
-}
+    // 3. 将output中的其他量转移到cpu并从B*C*H*W维度转换为B*H*W*C
+    output["center"] = output["center"].permute({0, 2, 3, 1}).to(torch::kCPU);
+    output["dim"] = output["dim"].permute({0, 2, 3, 1}).to(torch::kCPU);
+    output["rot"] = output["rot"].permute({0, 2, 3, 1}).to(torch::kCPU);
 
-// 从mean dim rot 中解包出object
-std::vector<Object> UnpackObject(int lable, std::vector<Eigen::Vector2i> indexs, torch::Tensor means,
-                                 torch::Tensor dims, torch::Tensor rots)
-{
-    std::vector<Object> objs;
-    objs.reserve(indexs.size());
-    for (auto index : indexs)
-    {
-        Eigen::Vector3f pos(getValuesFromTensor(means, index));
-        Eigen::Vector3f dim(getValuesFromTensor(dims, index));
-        float heading = getRotFromTensor(rots, index);
-        objs.emplace_back(lable, heading, pos, dim);
-    }
-    return objs;
-}
-
-std::vector<Object> Detector::infer(CloudType &cloud)
-{
-    model->eval();
-    auto map = model->forward(cloud);
-    auto heatmap = map["heatmap"][0];
-
-    auto car = findLocalMaxima(heatmap[0], -1);
-    auto poepole = findLocalMaxima(heatmap[1], -1);
-
-    std::vector<Object> objs(UnpackObject(0, car, map["center"][0].to(torch::kCPU), map["dim"][0].to(torch::kCPU),
-                                          map["rot"][0].to(torch::kCPU)));
-    auto objs_p = UnpackObject(1, poepole, map["center"][0].to(torch::kCPU), map["dim"][0].to(torch::kCPU),
-                               map["rot"][0].to(torch::kCPU));
-    objs.insert(objs.end(), objs_p.begin(), objs_p.end());
-
-    return objs;
+    // 4. 将检测结果追加到对象列表中
+    objs.clear();
+    AppendObject(output, car_indexs, 0, objs);
+    AppendObject(output, people_indexs, 1, objs);
 }
