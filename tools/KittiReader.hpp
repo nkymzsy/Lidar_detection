@@ -10,6 +10,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <memory>
+#include <utility>
 
 #include "../include/Datatype.hpp"
 
@@ -18,31 +20,45 @@ using PointXYZI = pcl::PointXYZI;
 
 class KittiDataReader
 {
+    using DataPair = std::pair<pcl::PointCloud<PointXYZI>, std::vector<Object>>; 
 public:
 
     std::map<std::string, int> label2Number = {
         {"Car", 0},     {"Van", 1},  {"Truck", 2}, {"Pedestrian", 3}, {"Person_sitting", 4},
         {"Cyclist", 5}, {"Tram", 6}, {"Misc", 7},  {"DontCare", 8}};
 
-    struct CloudData
+    std::shared_ptr<std::vector<DataPair>> getBatchData(int n)
     {
-        bool dataIsOk;
-        pcl::PointCloud<PointXYZI> cloud;
-        std::vector<Object> objects;
-    } cloudData_;
+        auto data = std::make_shared<std::vector<DataPair>>();
+        data->reserve(n);
+        while (n--)
+        {
+            auto OnceData = getOnceData();
+            if (OnceData)
+            {
+                data->emplace_back(std::move(*OnceData));
+            }
+            else
+            {
+                break;
+            }
+        }
+        return data;
+    }
 
-    CloudData &getOnceData()
+    std::shared_ptr<DataPair> getOnceData()
     {
+        std::shared_ptr<DataPair> cloudData(new DataPair);
         std::stringstream ss;
         ss << std::setw(6) << std::setfill('0') << currentIndex_++; // 生成六位数字，不足部分用0填充
         std::string formattedIndex = ss.str();
         if (readCalibration(calibPath_ + formattedIndex + ".txt") &&
-            readPointCloud(pointCloudPath_ + formattedIndex + ".bin") &&
-            readLabels(labelPath_ + formattedIndex + ".txt"))
-            cloudData_.dataIsOk = true;
-        else
-            cloudData_.dataIsOk = false;
-        return cloudData_;
+            readPointCloud(pointCloudPath_ + formattedIndex + ".bin", *cloudData) &&
+            readLabels(labelPath_ + formattedIndex + ".txt", *cloudData))
+        {
+            return cloudData;
+        }
+        return nullptr;
     }
 
     KittiDataReader(const std::string &pointCloudPath, const std::string &labelPath, const std::string &calibPath)
@@ -57,14 +73,14 @@ private:
     std::string calibPath_;
     Eigen::Matrix4f Tr_velo_to_cam_;
 
-    bool readPointCloud(std::string path)
+    bool readPointCloud(std::string path, DataPair &cloudData)
     {
         std::ifstream file(path, std::ios::binary);
         if (!file.is_open())
         {
             return false;
         }
-        auto &cloud = cloudData_.cloud;
+        auto &cloud = cloudData.first;
         cloud.clear();
         pcl::PointXYZI p;
         while (file.read(reinterpret_cast<char *>(&p.x), sizeof(float)) &&
@@ -79,10 +95,11 @@ private:
         return true;
     }
 
-    bool readLabels(std::string path)
+    bool readLabels(std::string path, DataPair &cloudData)
     {
         std::ifstream file(path);
-        cloudData_.objects.clear();
+        auto &objects = cloudData.second;
+        objects.clear();
         if (!file.is_open())
         {
             return false;
@@ -106,7 +123,7 @@ private:
             }
             Eigen::Vector3f center =
                 Tr_cam_to_velo.block<3, 3>(0, 0) * Eigen::Vector3f(x, y, z) + Tr_cam_to_velo.block<3, 1>(0, 3);
-            cloudData_.objects.emplace_back(label2Number[type], ry + M_PI / 2, center, Eigen::Vector3f(l, w, h));
+            objects.emplace_back(label2Number[type], ry + M_PI / 2, center, Eigen::Vector3f(l, w, h));
         }
 
         file.close();

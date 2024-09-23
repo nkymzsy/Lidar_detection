@@ -8,6 +8,7 @@ class Detector
 private:
     using CloudType = pcl::PointCloud<PillarFeatureGenerate::PointType>;
     using TensorMap = std::unordered_map<std::string, torch::Tensor>;
+    using DataPair = std::pair<pcl::PointCloud<PillarFeatureGenerate::PointType>, std::vector<Object>>;
 
 public:
     enum class Mode
@@ -27,6 +28,7 @@ public:
     }
 
     void Train(CloudType &cloud, const std::vector<Object> &objs_gt);
+    void Train(const std::vector<DataPair> &data);
     void Infer(CloudType &cloud, std::vector<Object> &objs_infer, float theshold = 0.3);
     void SaveModeParamters(const std::string &path);
     void LoadModeParamters(const std::string &path);
@@ -41,4 +43,5 @@ private:
     torch::Device device = torch::Device(torch::kCUDA);
 
     void BuildDetectionGroundTruth(const std::vector<Object> &objs, TensorMap &ground_truth);
+    void BuildDetectionGroundTruth(const std::vector<DataPair> &data, TensorMap &ground_truth);
 };

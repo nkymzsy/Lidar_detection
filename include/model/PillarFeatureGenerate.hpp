@@ -108,4 +108,29 @@ public:
 
         return {pillar_features_tensor_, index_tensor_};
     };
+
+    std::pair<torch::Tensor, torch::Tensor>
+    Generate(const std::vector<std::pair<pcl::PointCloud<PointType>, std::vector<Object>>> &data)
+    {
+        std::pair<torch::Tensor, torch::Tensor> trainData;
+        auto &[pillarBatch, indexBatch] = trainData;
+
+        for (int i = 0; i < data.size(); i++)
+        {
+            auto [pillar, index] = Generate(data[i].first);
+            if (pillarBatch.numel())
+            {
+                pillarBatch = torch::cat({pillarBatch, pillar}, 0);
+                torch::Tensor batchIndex = torch::full({index.size(0), 1}, i, torch::dtype(torch::kInt32)).to(device);
+                indexBatch = torch::cat({torch::cat({batchIndex, index}, 1), indexBatch}, 0);
+            }
+            else
+            {
+                pillarBatch = pillar;
+                torch::Tensor batchIndex = torch::full({index.size(0), 1}, i, torch::dtype(torch::kInt32)).to(device);
+                indexBatch = torch::cat({batchIndex, index}, 1);
+            }
+        }
+        return trainData;
+    }
 };

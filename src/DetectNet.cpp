@@ -95,12 +95,54 @@ void Detector::BuildDetectionGroundTruth(const std::vector<Object> &objs,
     mask_map = mask_map.unsqueeze(0);
 };
 
+void Detector::BuildDetectionGroundTruth(const std::vector<DataPair> &data, TensorMap &ground_truth)
+{
+
+    for (int i = 0; i < data.size(); i++)
+    {
+        auto &obj = data[i].second;
+        TensorMap groundtruthTemp;
+        BuildDetectionGroundTruth(obj, groundtruthTemp);
+        if (i == 0)
+        {
+            ground_truth = groundtruthTemp;
+        }
+        else
+        {
+            for (auto &[key, tensor] : ground_truth)
+            {
+                tensor = torch::cat({tensor, groundtruthTemp[key]}, 0);
+            }
+        }
+    }
+}
+
 void Detector::Train(CloudType &cloud, const std::vector<Object> &objs_gt)
 {
     TensorMap groundtruth;
-    BuildDetectionGroundTruth(objs_gt, groundtruth);
-
     auto headmap = model->forward(cloud);
+    torch::cuda::synchronize();
+    
+    BuildDetectionGroundTruth(objs_gt, groundtruth);
+    torch::cuda::synchronize();
+
+
+
+    auto loss = loss_function.forward(headmap, groundtruth);
+    std::cout << "loss: " << loss.item<float>() << std::endl;
+
+    optimizer->zero_grad();
+    loss.backward();
+    optimizer->step();
+}
+
+void Detector::Train(const std::vector<DataPair> &data) 
+{
+    int batch_size = data.size();
+    TensorMap groundtruth;
+    BuildDetectionGroundTruth(data, groundtruth);
+
+    auto headmap = model->forward(data);
 
     auto loss = loss_function.forward(headmap, groundtruth);
     std::cout << "loss: " << loss.item<float>() << std::endl;

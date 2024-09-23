@@ -43,15 +43,17 @@ public:
         cls_loss = cls_loss.sum();
 
         // 2. regression mean loss
-        auto mean_loss = smooth_l1_loss(bbox_mean_pred, bbox_mean_real) * mask;
+        auto mask3d = mask.unsqueeze(1).expand_as(bbox_mean_pred);
+        auto mean_loss = smooth_l1_loss(bbox_mean_pred, bbox_mean_real) * mask3d;
         mean_loss = mean_loss.sum();
 
         // 2. regression dim loss
-        auto dim_loss = smooth_l1_loss(bbox_dim_pred, bbox_dim_real) * mask;
+        auto dim_loss = smooth_l1_loss(bbox_dim_pred, bbox_dim_real) * mask3d;
         dim_loss = dim_loss.sum();
 
         // 3. regression rot loss
-        auto rot_loss = smooth_l1_loss(bbox_heading_pred, bbox_heading_real) * mask;
+        auto mask2d = mask.unsqueeze(1).expand_as(bbox_heading_pred);
+        auto rot_loss = smooth_l1_loss(bbox_heading_pred, bbox_heading_real) * mask2d;
         rot_loss = rot_loss.sum();
 
         // 4. total loss

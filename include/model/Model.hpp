@@ -38,6 +38,16 @@ public:
         auto &head_output = ch_->forward(feature_map);
         return head_output;
     }
+
+    std::unordered_map<std::string, at::Tensor> &
+    forward(const std::vector<std::pair<pcl::PointCloud<PillarFeatureGenerate::PointType>, std::vector<Object>>> &data)
+    {
+        auto [pillars, pillars_index] = pf_.Generate(data);
+        auto pillarFeatures = pn_->forward(pillars);
+        auto feature_map = mf_->forward(pillarFeatures, pillars_index, data.size());
+        auto &head_output = ch_->forward(feature_map);
+        return head_output;
+    }
 };
 
 TORCH_MODULE(DetectNet);

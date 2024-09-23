@@ -1,7 +1,7 @@
-#include <pcl/io/pcd_io.h>
 #include "include/DetectNet.hpp"
 #include "tools/KittiReader.hpp"
 #include "tools/RosUtils.hpp"
+#include <pcl/io/pcd_io.h>
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "demo");
@@ -12,7 +12,7 @@ int main(int argc, char **argv)
 
     int loop = 0;
     Detector denet;
-    denet.LoadModeParamters("/home/data/code/catkin_ws/src/pillar_detect/model.pt");
+    // denet.LoadModeParamters("/home/data/code/catkin_ws/src/pillar_detect/model.pt");
     while (ros::ok())
     {
         KittiDataReader kittiDataReader("/home/data/dataset/KITTIDetection/data_object_velodyne/training/velodyne/",
@@ -22,14 +22,10 @@ int main(int argc, char **argv)
         loop++;
         while (ros::ok())
         {
-            auto &data = kittiDataReader.getOnceData();
-            if (!data.dataIsOk)
+            auto data = kittiDataReader.getBatchData(6);
+            if (data == nullptr)
                 break;
-
-            std::cout << "loop:" << loop << " frame: " << i << "  " << data.objects.size() << " ";
-
-            denet.Train(data.cloud, data.objects);
-
+            denet.Train(*data);
             if (i++ % 200 == 0)
             {
                 denet.SaveModeParamters("/home/data/code/catkin_ws/src/pillar_detect/model.pt");

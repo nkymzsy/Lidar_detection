@@ -22,18 +22,18 @@ int main(int argc, char **argv)
     std::vector<Object> objs;
     while (ros::ok())
     {
-        auto &data = kittiDataReader.getOnceData();
-        if (!data.dataIsOk)
+        auto data = kittiDataReader.getOnceData();
+        if (data == nullptr)
         {
             break;
         }
-
         objs.clear();
+        auto &[cloud, objects] = *data;
         TicToc tic;
-        denet.Infer(data.cloud, objs);
+        denet.Infer(cloud, objs);
         tic.toc("whole infer:");
         rosutils::Publish3DBoundingBox(objs, boxPub);
-        rosutils::PublishPointCloud(data.cloud, pub);
+        rosutils::PublishPointCloud(cloud, pub);
         loopRate.sleep();
     }
 
