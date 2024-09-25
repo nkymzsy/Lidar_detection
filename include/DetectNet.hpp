@@ -24,7 +24,7 @@ public:
         else
             model->eval();
 
-        optimizer = std::make_unique<torch::optim::Adam>(model->parameters(), torch::optim::AdamOptions(1e-7));
+        optimizer = std::make_unique<torch::optim::Adam>(model->parameters(), torch::optim::AdamOptions(1e-4));
     }
 
     void Train(CloudType &cloud, const std::vector<Object> &objs_gt);

@@ -73,10 +73,8 @@ public:
         pillar_indices_.reserve(pillars_.size());
         pillar_features_.clear();
         pillar_features_.reserve(Config::max_nums_in_pillar * pillars_.size());
-        for (auto &pillar : pillars_)
+        for (auto &[index, points] : pillars_)
         {
-            auto &points = pillar.second;
-            auto &index = pillar.first;
             auto &x = index(0);
             auto &y = index(1);
             Eigen::Vector3f mean(0, 0, 0);
@@ -85,17 +83,22 @@ public:
                 mean += point.getVector3fMap();
             }
             mean /= points.size();
-            while (points.size() < Config::max_nums_in_pillar)
-            {
-                points.push_back(points[rand() % points.size()]);
-            }
 
             pillar_indices_.emplace_back(index);
-            for (auto &point : points)
+
+            for (int i = 0; i < Config::max_nums_in_pillar; i++)
             {
-                Eigen::Vector3f pc = point.getVector3fMap() - mean;
-                pillar_features_.emplace_back(Features{(float)index.x(), (float)index.y(), point.x, point.y, point.z,
-                                                       point.intensity, pc.x(), pc.y(), pc.z()});
+                if (i < points.size())
+                {
+                    auto &point = points.points[i];
+                    Eigen::Vector3f pc = point.getVector3fMap() - mean;
+                    pillar_features_.emplace_back(Features{(float)index.x(), (float)index.y(), point.x, point.y,
+                                                           point.z, point.intensity, pc.x(), pc.y(), pc.z()});
+                }
+                else
+                {
+                    pillar_features_.push_back(Features{0, 0, 0, 0, 0, 0, 0, 0, 0});
+                }
             }
         }
         // n * 32 * 9 的torch

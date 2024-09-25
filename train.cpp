@@ -12,7 +12,7 @@ int main(int argc, char **argv)
 
     int loop = 0;
     Detector denet;
-    // denet.LoadModeParamters("/home/data/code/catkin_ws/src/pillar_detect/model.pt");
+    denet.LoadModeParamters("/home/data/code/catkin_ws/src/pillar_detect/model.pt");
     while (ros::ok())
     {
         KittiDataReader kittiDataReader("/home/data/dataset/KITTIDetection/data_object_velodyne/training/velodyne/",
@@ -22,11 +22,12 @@ int main(int argc, char **argv)
         loop++;
         while (ros::ok())
         {
-            auto data = kittiDataReader.getBatchData(6);
-            if (data == nullptr)
+            std::cout << "loop: " << loop <<"  i: "<< i << "  ";
+            auto data = kittiDataReader.getBatchData(8);
+            if (data == nullptr || data->size() != 8)
                 break;
             denet.Train(*data);
-            if (i++ % 200 == 0)
+            if (i++ % 20 == 0)
             {
                 denet.SaveModeParamters("/home/data/code/catkin_ws/src/pillar_detect/model.pt");
             }
