@@ -6,9 +6,9 @@
 class Detector
 {
 private:
-    using CloudType = pcl::PointCloud<PillarFeatureGenerate::PointType>;
+    using CloudType = pcl::PointCloud<PillarsBuilder::PointType>;
     using TensorMap = std::unordered_map<std::string, torch::Tensor>;
-    using DataPair = std::pair<pcl::PointCloud<PillarFeatureGenerate::PointType>, std::vector<Object>>;
+    using DataPair = std::pair<pcl::PointCloud<PillarsBuilder::PointType>, std::vector<Object>>;
 
 public:
     enum class Mode
@@ -24,7 +24,7 @@ public:
         else
             model->eval();
 
-        optimizer = std::make_unique<torch::optim::Adam>(model->parameters(), torch::optim::AdamOptions(1e-4));
+        optimizer = std::make_unique<torch::optim::Adam>(model->parameters(), torch::optim::AdamOptions(1e-6));
     }
 
     void Train(CloudType &cloud, const std::vector<Object> &objs_gt);

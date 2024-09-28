@@ -6,14 +6,14 @@
 #include "model/CenterHead.hpp"
 #include "model/Config.hpp"
 #include "model/MapFeature.hpp"
-#include "model/PillarFeatureGenerate.hpp"
+#include "model/PillarsBuilder.hpp"
 #include "model/PointNet.hpp"
 
 class DetectNetImpl : public torch::nn::Module
 {
 private:
-    using CloudType = pcl::PointCloud<PillarFeatureGenerate::PointType>;
-    PillarFeatureGenerate pf_;
+    using CloudType = pcl::PointCloud<PillarsBuilder::PointType>;
+    PillarsBuilder pf_;
     PointNet pn_;
     MapFeature mf_;
     CenterHead ch_;
@@ -32,7 +32,7 @@ public:
 
     std::unordered_map<std::string, at::Tensor> &forward(CloudType &cloud)
     {
-        auto [pillars, pillars_index] = pf_.Generate(cloud);
+        auto [pillars, pillars_index] = pf_.BuildPillarsByCuda(cloud);
         auto pillarFeatures = pn_->forward(pillars);
         auto feature_map = mf_->forward(pillarFeatures, pillars_index);
         auto &head_output = ch_->forward(feature_map);
@@ -40,9 +40,9 @@ public:
     }
 
     std::unordered_map<std::string, at::Tensor> &
-    forward(const std::vector<std::pair<pcl::PointCloud<PillarFeatureGenerate::PointType>, std::vector<Object>>> &data)
+    forward(const std::vector<std::pair<pcl::PointCloud<PillarsBuilder::PointType>, std::vector<Object>>> &data)
     {
-        auto [pillars, pillars_index] = pf_.Generate(data);
+        auto [pillars, pillars_index] = pf_.BuildPillarsByCuda(data);
         auto pillarFeatures = pn_->forward(pillars);
         auto feature_map = mf_->forward(pillarFeatures, pillars_index, data.size());
         auto &head_output = ch_->forward(feature_map);

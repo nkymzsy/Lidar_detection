@@ -49,7 +49,7 @@ void Detector::BuildDetectionGroundTruth(const std::vector<Object> &objs,
         else
             continue;
 
-        auto center = PillarFeatureGenerate::Point2Index(obj.position);
+        auto center = PillarsBuilder::Point2Index(obj.position);
 
         int range_x = (obj.dimensions.x() + Config::pillar_x_size) / Config::pillar_x_size;
         int range_y = (obj.dimensions.y() + Config::pillar_y_size) / Config::pillar_y_size;
@@ -121,16 +121,9 @@ void Detector::Train(CloudType &cloud, const std::vector<Object> &objs_gt)
 {
     TensorMap groundtruth;
     auto headmap = model->forward(cloud);
-    torch::cuda::synchronize();
-    
     BuildDetectionGroundTruth(objs_gt, groundtruth);
-    torch::cuda::synchronize();
-
-
-
     auto loss = loss_function.forward(headmap, groundtruth);
     std::cout << "loss: " << loss.item<float>() << std::endl;
-
     optimizer->zero_grad();
     loss.backward();
     optimizer->step();

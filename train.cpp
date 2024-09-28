@@ -23,16 +23,16 @@ int main(int argc, char **argv)
         while (ros::ok())
         {
             std::cout << "loop: " << loop <<"  i: "<< i << "  ";
-            auto data = kittiDataReader.getBatchData(8);
-            if (data == nullptr || data->size() != 8)
+            auto data = kittiDataReader.getBatchData(1);
+            if (data == nullptr || data->size() != 1)
                 break;
             denet.Train(*data);
-            if (i++ % 20 == 0)
+            if (++i % 20 == 0)
             {
-                denet.SaveModeParamters("/home/data/code/catkin_ws/src/pillar_detect/model.pt");
+                // denet.SaveModeParamters("/home/data/code/catkin_ws/src/pillar_detect/model.pt");
             }
         }
-        denet.SaveModeParamters("/home/data/code/catkin_ws/src/pillar_detect/model.pt");
+        // denet.SaveModeParamters("/home/data/code/catkin_ws/src/pillar_detect/model.pt");
     }
 
     return 0;
