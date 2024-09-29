@@ -1,5 +1,5 @@
 
-#include <../include/DetectNet.hpp>
+#include <DetectNet.hpp>
 #include <math.h>
 
 class Gaussian2D

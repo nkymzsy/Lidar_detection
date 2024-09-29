@@ -1,5 +1,5 @@
 #pragma once
-#include "../Datatype.hpp"
+#include "Datatype.hpp"
 #include <torch/torch.h>
 
 class Loss : public torch::nn::Module

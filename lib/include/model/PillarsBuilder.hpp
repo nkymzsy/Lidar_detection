@@ -7,7 +7,7 @@
 #include <torch/torch.h>
 #include <unordered_map>
 
-#include "../Datatype.hpp"
+#include "Datatype.hpp"
 #include "Config.hpp"
 #include "PillarsBuilderCuda.h"
 

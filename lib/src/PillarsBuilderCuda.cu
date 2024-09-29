@@ -1,9 +1,8 @@
-#include <../include/model/PillarsBuilderCuda.h>
+#include <model/PillarsBuilderCuda.h>
 
 #include <Eigen/Core>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
-#include "../tools/TicToc.hpp"
 
 __device__ bool IsInRoi(float x, float y)
 {

@@ -2,6 +2,7 @@
 
 #include "model/Loss.hpp"
 #include "model/Model.hpp"
+#include "TicToc.hpp"
 
 class Detector
 {

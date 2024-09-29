@@ -9,15 +9,12 @@ public:
     using TimePoint = Clock::time_point;
     using Duration = std::chrono::duration<double>;
 
-    // 构造函数
     TicToc() : start_(Clock::now()) {}
 
-    // 开始计时
     void tic() {
         start_ = Clock::now();
     }
 
-    // 结束计时并打印耗时
     double toc(const std::string& message = "") {
         TimePoint end = Clock::now();
         Duration duration = end - start_;

@@ -1,6 +1,6 @@
 #pragma once
 #include <torch/torch.h>
-#include "../../tools/TicToc.hpp"
+#include "TicToc.hpp"
 namespace Config
 {
     constexpr float pillar_x_size = 0.2;

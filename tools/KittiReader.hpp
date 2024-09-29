@@ -2,6 +2,7 @@
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pcl/io/pcd_io.h>
 
 #include <fstream>
 #include <iomanip>
@@ -13,7 +14,7 @@
 #include <memory>
 #include <utility>
 
-#include "../include/Datatype.hpp"
+#include "lib/include/Datatype.hpp"
 
 // 定义点云类型
 using PointXYZI = pcl::PointXYZI;

@@ -1,16 +1,15 @@
-#include "include/DetectNet.hpp"
+#include "lib/include/DetectNet.hpp"
 #include "tools/KittiReader.hpp"
 #include "tools/RosUtils.hpp"
-#include "tools/TicToc.hpp"
 
-#include <pcl/io/pcd_io.h>
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "demo");
     ros::NodeHandle nh;
-    KittiDataReader kittiDataReader("/home/data/dataset/KITTIDetection/data_object_velodyne/training/velodyne/",
-                                    "/home/data/dataset/KITTIDetection/training/label_2/",
-                                    "/home/data/dataset/KITTIDetection/calib/");
+    std::string cloud_path = "/home/data/dataset/KITTIDetection/data_object_velodyne/training/velodyne/";
+    std::string label_path = "/home/data/dataset/KITTIDetection/training/label_2/";
+    std::string calib_path = "/home/data/dataset/KITTIDetection/calib/";
+    KittiDataReader kittiDataReader(cloud_path, label_path, calib_path);
 
     ros::Publisher pub = nh.advertise<sensor_msgs::PointCloud2>("point_cloud_topic", 10);
     ros::Publisher boxPub = nh.advertise<visualization_msgs::MarkerArray>("bbox", 10);
@@ -18,7 +17,7 @@ int main(int argc, char **argv)
 
     int loop = 0;
     Detector denet(Detector::Mode::INFERENCE);
-    denet.LoadModeParamters("/home/data/code/catkin_ws/src/pillar_detect/pt/60epoches_model.pt");
+    denet.LoadModeParamters("/home/data/code/catkin_ws/src/pillar_detect/lib/pt/60epoches_model.pt");
     std::vector<Object> objs;
     while (ros::ok())
     {
