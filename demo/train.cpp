@@ -3,9 +3,11 @@
 
 int main(int argc, char **argv)
 {
+    int batch_size = 8;
     int epoches = 0;
     Detector denet;
-    denet.LoadModeParamters("/home/data/code/catkin_ws/src/pillar_detect/model.pt");
+    std::string model_path = "/home/data/code/catkin_ws/temp/60epoches_model.pt";
+    denet.LoadModeParamters(model_path);
     while (1)
     {
         std::string cloud_path = "/home/data/dataset/KITTIDetection/data_object_velodyne/training/velodyne/";
@@ -16,18 +18,22 @@ int main(int argc, char **argv)
         epoches++;
         while (1)
         {
-            std::cout << "epoches: " << epoches << "  curr: " << i++ << "  ";
-            auto data = kittiDataReader.getBatchData(8);
-            if (data && data->size() == 8)
+            auto data = kittiDataReader.getBatchData(batch_size);
+            if (data && data->size() == batch_size)
             {
-                denet.Train(*data);
+                std::cout << "epoches: " << epoches << "  curr: " << i++ << "  ";
+                denet.Train(*data, 8);
                 if (i % 20 == 0)
                 {
-                    denet.SaveModeParamters("/home/data/code/catkin_ws/src/pillar_detect/model.pt");
+                    denet.SaveModeParamters(model_path);
                 }
             }
+            else
+            {
+                break;
+            }
         }
-        denet.SaveModeParamters("/home/data/code/catkin_ws/src/pillar_detect/model.pt");
+        denet.SaveModeParamters(model_path);
     }
 
     return 0;

@@ -29,7 +29,7 @@ public:
     }
 
     void Train(CloudType &cloud, const std::vector<Object> &objs_gt);
-    void Train(const std::vector<DataPair> &data);
+    void Train(const std::vector<DataPair> &data, int accumulation_steps = 1);
     void Infer(CloudType &cloud, std::vector<Object> &objs_infer, float theshold = 0.3);
     void SaveModeParamters(const std::string &path);
     void LoadModeParamters(const std::string &path);

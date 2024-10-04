@@ -10,6 +10,8 @@ namespace Config
     constexpr float roi_x_max = 50;
     constexpr float roi_y_min = -40;
     constexpr float roi_y_max = 40;
+    constexpr float roi_z_min = -3;
+    constexpr float roi_z_max = 1;
 
     constexpr int max_nums_in_pillar = 16;
     constexpr int pillar_feature_dim = 9;       // pillar特征的输入维度

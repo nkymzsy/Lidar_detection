@@ -34,6 +34,7 @@ private:
     torch::Tensor index_tensor_;
 
     torch::Device device = torch::Device(torch::kCUDA);
+    PillarsBuilderCuda pillars_builder_cuda_;
 
 public:
     PillarsBuilder() {};
@@ -42,7 +43,7 @@ public:
     static bool IsInRoi(const PointType &point)
     {
         return point.x > Config::roi_x_min && point.x < Config::roi_x_max && point.y > Config::roi_y_min &&
-               point.y < Config::roi_y_max;
+               point.y < Config::roi_y_max && point.z > Config::roi_z_min && point.z < Config::roi_z_max;
     }
 
     static Eigen::Vector2i Point2Index(const Eigen::Vector3f &point)
@@ -106,11 +107,10 @@ public:
         }
         // n * 32 * 9 的torch
         int n = pillar_features_.size() / Config::max_nums_in_pillar;
-        c10::IntArrayRef sizes = {n, Config::max_nums_in_pillar, Config::pillar_feature_dim};
+        std::array<int64_t, 3> sizes = {n, Config::max_nums_in_pillar, Config::pillar_feature_dim};
         pillar_features_tensor_ = torch::from_blob(pillar_features_.data(), sizes, torch::kFloat32).to(device);
 
-        c10::IntArrayRef index_sizes = {(int)pillar_indices_.size(), 2};
-        index_tensor_ = torch::from_blob(pillar_indices_.data(), index_sizes, torch::kInt32).to(device);
+        index_tensor_ = torch::from_blob(pillar_indices_.data(), {(int)pillar_indices_.size(), 2}, torch::kInt32).to(device);
 
         return {pillar_features_tensor_, index_tensor_};
     };
@@ -152,12 +152,12 @@ public:
         {
             auto points = reinterpret_cast<const float *>(data[i].first.points.data());
             auto [pillar_features, pillar_index, pillar_nums] =
-                BuildPillarsFeature(points, data[i].first.points.size());
+                pillars_builder_cuda_.BuildPillarsFeature(points, data[i].first.points.size());
 
-            c10::IntArrayRef sizes_pillars = {pillar_nums, Config::max_nums_in_pillar, Config::pillar_feature_dim};
+            std::array<int64_t, 3>  sizes_pillars = {pillar_nums, Config::max_nums_in_pillar, Config::pillar_feature_dim};
             torch::Tensor pillar = torch::from_blob(pillar_features, sizes_pillars, op1).clone();
 
-            c10::IntArrayRef sizes_index = {pillar_nums, 2};
+            std::array<int64_t, 2>  sizes_index = {pillar_nums, 2};
             torch::Tensor index = torch::from_blob(pillar_index, sizes_index, op2).clone();
             if (pillarBatch.numel())
             {
@@ -184,12 +184,12 @@ public:
         auto op2 = torch::TensorOptions(torch::kInt32).device(torch::kCUDA);
 
         auto points = reinterpret_cast<const float *>(cloud.points.data());
-        auto [pillar_features, pillar_index, pillar_nums] = BuildPillarsFeature(points, cloud.points.size());
+        auto [pillar_features, pillar_index, pillar_nums] = pillars_builder_cuda_.BuildPillarsFeature(points, cloud.points.size());
 
-        c10::IntArrayRef sizes_pillars = {pillar_nums, Config::max_nums_in_pillar, Config::pillar_feature_dim};
+        std::array<int64_t, 3>  sizes_pillars = {pillar_nums, Config::max_nums_in_pillar, Config::pillar_feature_dim};
         torch::Tensor pillar = torch::from_blob(pillar_features, sizes_pillars, op1).clone();
 
-        c10::IntArrayRef sizes_index = {pillar_nums, 2};
+        std::array<int64_t, 2> sizes_index = {pillar_nums, 2};
         torch::Tensor index = torch::from_blob(pillar_index, sizes_index, op2).clone();
 
         pillarBatch = pillar;

@@ -5,7 +5,7 @@
 class Loss : public torch::nn::Module
 {
 public:
-    Loss() : smooth_l1_loss(torch::nn::SmoothL1LossOptions().reduction(torch::kNone).beta(1 / 9.0f)) {}
+    Loss() : smooth_l1_loss(torch::nn::SmoothL1LossOptions().reduction(torch::kNone).beta(1 / 2.0f)) {}
     torch::Tensor forward(std::unordered_map<std::string, at::Tensor> pred,
                           std::unordered_map<std::string, at::Tensor> groundtruth)
     {

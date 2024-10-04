@@ -42,7 +42,7 @@ public:
     std::unordered_map<std::string, at::Tensor> &
     forward(const std::vector<std::pair<pcl::PointCloud<PillarsBuilder::PointType>, std::vector<Object>>> &data)
     {
-        auto [pillars, pillars_index] = pf_.BuildPillarsByCuda(data);
+        auto [pillars, pillars_index] = pf_.BuildForClouds(data); // 训练的时候不用cuda加速了 尽量避免显存溢出 留给batchsize用
         auto pillarFeatures = pn_->forward(pillars);
         auto feature_map = mf_->forward(pillarFeatures, pillars_index, data.size());
         auto &head_output = ch_->forward(feature_map);

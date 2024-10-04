@@ -21,7 +21,8 @@ __device__ Eigen::Vector2i Point2Index2d(float x, float y)
                            (y - Config::roi_y_min) / Config::pillar_y_size);
 };
 
-class PillarsBuilderCuda
+
+class PillarsBuilderCudaImpl
 {
 public:
     struct PillarInfo
@@ -41,18 +42,18 @@ private:
     thrust::device_vector<Eigen::Matrix<float, 1, 9>> pillar_feature_;
 
 public:
-    PillarsBuilderCuda();
+    PillarsBuilderCudaImpl();
     void BuildPillarsFeature(const float *data, int point_num);
     auto &GetPillarIndex() { return pillar_idx_; }
     auto &GetPillarFeatureData() { return pillar_feature_; }
 };
 
-PillarsBuilderCuda::PillarsBuilderCuda()
+PillarsBuilderCudaImpl::PillarsBuilderCudaImpl()
 {
     pillars_.resize(pillars_nums_);
 };
 
-void PillarsBuilderCuda::BuildPillarsFeature(const float *data, int point_num)
+void PillarsBuilderCudaImpl::BuildPillarsFeature(const float *data, int point_num)
 {
     // 1. 数据传输到 GPU
     raw_cloud_.resize(point_num);
@@ -131,12 +132,21 @@ void PillarsBuilderCuda::BuildPillarsFeature(const float *data, int point_num)
                        });
 }
 
-std::tuple<float *, int *, int> BuildPillarsFeature(const float *data, int point_num)
+PillarsBuilderCuda::PillarsBuilderCuda()
 {
-    static PillarsBuilderCuda pillars_builder_cuda;
-    pillars_builder_cuda.BuildPillarsFeature(data, point_num);
+    pimpl = new PillarsBuilderCudaImpl;
+}
+
+PillarsBuilderCuda::~PillarsBuilderCuda()
+{
+    delete pimpl;
+}
+
+std::tuple<float *, int *, int> PillarsBuilderCuda::BuildPillarsFeature(const float *data, int point_num)
+{
+    pimpl->BuildPillarsFeature(data, point_num);
     return std::make_tuple(
-        reinterpret_cast<float *>(thrust::raw_pointer_cast(pillars_builder_cuda.GetPillarFeatureData().data())),
-        reinterpret_cast<int *>(thrust::raw_pointer_cast(pillars_builder_cuda.GetPillarIndex().data())),
-        pillars_builder_cuda.GetPillarIndex().size());
+        reinterpret_cast<float *>(thrust::raw_pointer_cast(pimpl->GetPillarFeatureData().data())),
+        reinterpret_cast<int *>(thrust::raw_pointer_cast(pimpl->GetPillarIndex().data())),
+        pimpl->GetPillarIndex().size());
 }

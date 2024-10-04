@@ -13,11 +13,11 @@ int main(int argc, char **argv)
 
     ros::Publisher pub = nh.advertise<sensor_msgs::PointCloud2>("point_cloud_topic", 10);
     ros::Publisher boxPub = nh.advertise<visualization_msgs::MarkerArray>("bbox", 10);
+    ros::Publisher boxRealPub = nh.advertise<visualization_msgs::MarkerArray>("real_bbox", 10);
     ros::Rate loopRate(0.5);
 
-    int loop = 0;
     Detector denet(Detector::Mode::INFERENCE);
-    denet.LoadModeParamters("/home/data/code/catkin_ws/src/pillar_detect/lib/pt/60epoches_model.pt");
+    denet.LoadModeParamters("/home/data/code/catkin_ws/temp/60epoches_model.pt");
     std::vector<Object> objs;
     while (ros::ok())
     {
@@ -29,9 +29,10 @@ int main(int argc, char **argv)
         objs.clear();
         auto &[cloud, objects] = *data;
         TicToc tic;
-        denet.Infer(cloud, objs, 0);
+        denet.Infer(cloud, objs, 0.1);
         tic.toc("whole infer:");
         rosutils::Publish3DBoundingBox(objs, boxPub);
+        rosutils::Publish3DBoundingBox(data->second, boxRealPub, 0.5);
         rosutils::PublishPointCloud(cloud, pub);
         loopRate.sleep();
     }

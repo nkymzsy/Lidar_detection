@@ -30,7 +30,7 @@ namespace rosutils
         return q;
     }
 
-    inline void Publish3DBoundingBox(std::vector<Object> &objects, ros::Publisher &marker_pub)
+    inline void Publish3DBoundingBox(const std::vector<Object> &objects, ros::Publisher &marker_pub, float fix = 0)
     {
         visualization_msgs::MarkerArray empty_markers;
         visualization_msgs::Marker delete_all_marker;
@@ -54,16 +54,16 @@ namespace rosutils
             // 设置颜色
             if (object.label == 0)
             {
-                marker.color.r = 1.0f;
-                marker.color.g = 1.0f;
-                marker.color.b = 0.0f;
+                marker.color.r = 1.0f - fix;
+                marker.color.g = 1.0f - fix;
+                marker.color.b = 0.0f + fix;
                 marker.color.a = 0.6f; // 半透明
             }
             else
             {
-                marker.color.r = 0.0f;
-                marker.color.g = 1.0f;
-                marker.color.b = 0.0f;
+                marker.color.r = 0.0f + fix;
+                marker.color.g = 1.0f - fix;
+                marker.color.b = 0.0f + fix;
                 marker.color.a = 0.6f;
             }
 

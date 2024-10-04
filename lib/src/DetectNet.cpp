@@ -69,7 +69,7 @@ void Detector::BuildDetectionGroundTruth(const std::vector<Object> &objs,
                 {
                     heat_map[label][i][j] = p;
 
-                    if (fabs(i - center.x()) < 3 && fabs(j - center.y()) < 3)
+                    if (fabs(i - center.x()) < 2 && fabs(j - center.y()) < 2)
                     {
                         mean_map[0][i][j] = obj.position.x();
                         mean_map[1][i][j] = obj.position.y();
@@ -129,20 +129,23 @@ void Detector::Train(CloudType &cloud, const std::vector<Object> &objs_gt)
     optimizer->step();
 }
 
-void Detector::Train(const std::vector<DataPair> &data) 
+void Detector::Train(const std::vector<DataPair> &data, int accumulation_steps)
 {
-    int batch_size = data.size();
+    static int i = 0;
     TensorMap groundtruth;
     BuildDetectionGroundTruth(data, groundtruth);
 
     auto headmap = model->forward(data);
 
-    auto loss = loss_function.forward(headmap, groundtruth);
+    auto loss = loss_function.forward(headmap, groundtruth) / accumulation_steps;
+    loss.backward();
     std::cout << "loss: " << loss.item<float>() << std::endl;
 
-    optimizer->zero_grad();
-    loss.backward();
-    optimizer->step();
+    if (++i % accumulation_steps == 0)
+    {
+        optimizer->step();
+        optimizer->zero_grad();
+    }
 }
 
 // 保存模型参数

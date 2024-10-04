@@ -16,11 +16,11 @@ private:
     torch::Device device = torch::Device(torch::kCUDA);
 
 public:
-    MapFeatureImpl() : bev_map(torch::zeros({Config::bev_w + 1, Config::bev_h + 1, Config::pillar_feature_dim_out}))
+    MapFeatureImpl()
     {
         register_module("resnet", resnet);
     }
-    torch::Tensor forward(torch::Tensor pillars, torch::Tensor index, int batch_dim = 1)
+    torch::Tensor forward(torch::Tensor &pillars, torch::Tensor &index, int batch_dim = 1)
     {
         // pillar 重新排序生成bevmap
         bev_map = torch::zeros({batch_dim, Config::bev_w, Config::bev_h, Config::pillar_feature_dim_out}).to(device);
