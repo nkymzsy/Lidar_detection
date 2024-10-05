@@ -6,7 +6,7 @@ class Gaussian2D
 {
 public:
     // 构造函数初始化均值和方差
-    Gaussian2D(Eigen::Vector2f mean, float range) : mean_(mean), covariance_(Eigen::Matrix2f::Identity() * range / 3.0f)
+    Gaussian2D(float r) :covariance_(Eigen::Matrix2f::Identity() * r / 3.0f)
     {
     }
 
@@ -18,7 +18,6 @@ public:
     }
 
 private:
-    Eigen::Vector2f mean_;       // 均值向量
     Eigen::Matrix2f covariance_; // 协方差矩阵
 };
 
@@ -31,13 +30,13 @@ void Detector::BuildDetectionGroundTruth(const std::vector<Object> &objs,
         {"center", torch::zeros({3, Config::bev_w, Config::bev_h})},
         {"dim", torch::zeros({3, Config::bev_w, Config::bev_h})},
         {"rot", torch::zeros({2, Config::bev_w, Config::bev_h})},
-        {"validmask", torch::zeros({Config::bev_w, Config::bev_h})}};
+        {"mask", torch::zeros({Config::bev_w, Config::bev_h})}};
 
     auto &heat_map = ground_truth["heatmap"];
     auto &mean_map = ground_truth["center"];
     auto &dim_map = ground_truth["dim"];
     auto &rot_map = ground_truth["rot"];
-    auto &mask_map = ground_truth["validmask"];
+    auto &mask_map = ground_truth["mask"];
 
     for (auto &obj : objs)
     {
@@ -51,13 +50,19 @@ void Detector::BuildDetectionGroundTruth(const std::vector<Object> &objs,
 
         auto center = PillarsBuilder::Point2Index(obj.position);
 
-        int range_x = (obj.dimensions.x() + Config::pillar_x_size) / Config::pillar_x_size;
-        int range_y = (obj.dimensions.y() + Config::pillar_y_size) / Config::pillar_y_size;
-        float range = std::max(obj.dimensions.x(), obj.dimensions.y()) / 2;
-        Gaussian2D gaussian(obj.position.block<2, 1>(0, 0), range);
-        for (int i = center.x() - range_x; i < center.x() + range_x; i++)
+        if (center.x() < 0 || center.y() < 0 || center.x() >= Config::bev_w || center.y() >= Config::bev_h)
         {
-            for (int j = center.y() - range_y; j < center.y() + range_y; j++)
+            continue;
+        }
+
+        int range_x = ceil(obj.dimensions.x() / Config::pillar_x_size);
+        int range_y = ceil(obj.dimensions.y() / Config::pillar_y_size);
+        int range = std::max(range_x, range_y);
+        float r = std::max(obj.dimensions.x(), obj.dimensions.y()) / 2;
+        Gaussian2D gaussian(r);
+        for (int i = center.x() - range; i < center.x() + range; i++)
+        {
+            for (int j = center.y() - range; j < center.y() + range; j++)
             {
                 float detal_i = std::abs(i - center.x()) * Config::pillar_x_size;
                 float detal_j = std::abs(j - center.y()) * Config::pillar_y_size;
@@ -65,27 +70,22 @@ void Detector::BuildDetectionGroundTruth(const std::vector<Object> &objs,
                     continue;
 
                 float p = gaussian(Eigen::Vector2f(detal_i, detal_j));
-                if (p > heat_map[label][i][j].item<float>())
+                if (p > heat_map.index({label, i, j}).item<float>())
                 {
-                    heat_map[label][i][j] = p;
-
-                    if (fabs(i - center.x()) < 2 && fabs(j - center.y()) < 2)
-                    {
-                        mean_map[0][i][j] = obj.position.x();
-                        mean_map[1][i][j] = obj.position.y();
-                        mean_map[2][i][j] = obj.position.z();
-
-                        dim_map[0][i][j] = obj.dimensions.x();
-                        dim_map[1][i][j] = obj.dimensions.y();
-                        dim_map[2][i][j] = obj.dimensions.z();
-
-                        rot_map[0][i][j] = sin(obj.heading);
-                        rot_map[1][i][j] = cos(obj.heading);
-                        mask_map[i][j] = p;
-                    }
+                    heat_map.index({label, i, j}) = p;
                 }
             }
         }
+        mean_map.index({torch::indexing::Slice(torch::indexing::None), center.x(), center.y()}) =
+            torch::tensor({obj.position.x(), obj.position.y(), obj.position.z()});
+
+        dim_map.index({torch::indexing::Slice(torch::indexing::None), center.x(), center.y()}) =
+            torch::tensor({obj.dimensions.x(), obj.dimensions.y(), obj.dimensions.z()});
+
+        rot_map.index({torch::indexing::Slice(torch::indexing::None), center.x(), center.y()}) =
+            torch::tensor({sin(obj.heading), cos(obj.heading)});
+
+        mask_map.index({center.x(), center.y()}) = 1.0f;
     }
 
     heat_map = heat_map.unsqueeze(0);
@@ -124,9 +124,9 @@ void Detector::Train(CloudType &cloud, const std::vector<Object> &objs_gt)
     BuildDetectionGroundTruth(objs_gt, groundtruth);
     auto loss = loss_function.forward(headmap, groundtruth);
     std::cout << "loss: " << loss.item<float>() << std::endl;
-    optimizer->zero_grad();
+    optimizer.zero_grad();
     loss.backward();
-    optimizer->step();
+    optimizer.step();
 }
 
 void Detector::Train(const std::vector<DataPair> &data, int accumulation_steps)
@@ -143,8 +143,8 @@ void Detector::Train(const std::vector<DataPair> &data, int accumulation_steps)
 
     if (++i % accumulation_steps == 0)
     {
-        optimizer->step();
-        optimizer->zero_grad();
+        optimizer.step();
+        optimizer.zero_grad();
     }
 }
 
@@ -178,9 +178,9 @@ void AppendObject(std::unordered_map<std::string, torch::Tensor> &output, const 
     {
         int x = indexs[i][0].item<int>();
         int y = indexs[i][1].item<int>();
-        float heading = atan2(rots[0][x][y][0].item<float>(), rots[0][x][y][1].item<float>());
-        objs.emplace_back(label, heading, Transform3DTensor2Eigen(means[0][x][y]),
-                          Transform3DTensor2Eigen(dims[0][x][y]));
+        float heading = atan2(rots.index({0, x, y, 0}).item<float>(), rots.index({0, x, y, 1}).item<float>());
+        objs.emplace_back(label, heading, Transform3DTensor2Eigen(means.index({0, x, y})),
+                          Transform3DTensor2Eigen(dims.index({0, x, y})));
     }
 }
 

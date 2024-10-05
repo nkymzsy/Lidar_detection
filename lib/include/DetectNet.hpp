@@ -4,6 +4,8 @@
 #include "model/Model.hpp"
 #include "TicToc.hpp"
 
+#define private public
+
 class Detector
 {
 private:
@@ -18,14 +20,13 @@ public:
         INFERENCE
     };
 
-    Detector(Mode mode = Mode::TRAIN) : mode_(mode)
+    Detector(Mode mode = Mode::TRAIN)
+        : mode_(mode), model(), optimizer(model->parameters(), torch::optim::AdamOptions(1e-5))
     {
         if (mode == Mode::TRAIN)
             model->train();
         else
             model->eval();
-
-        optimizer = std::make_unique<torch::optim::Adam>(model->parameters(), torch::optim::AdamOptions(1e-6));
     }
 
     void Train(CloudType &cloud, const std::vector<Object> &objs_gt);
@@ -40,7 +41,7 @@ private:
     Mode mode_;
 
     std::vector<Object> objs_infer;
-    std::unique_ptr<torch::optim::Adam> optimizer;
+    torch::optim::Adam optimizer;
     torch::Device device = torch::Device(torch::kCUDA);
 
     void BuildDetectionGroundTruth(const std::vector<Object> &objs, TensorMap &ground_truth);

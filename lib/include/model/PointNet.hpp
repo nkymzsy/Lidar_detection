@@ -19,11 +19,11 @@ public:
 
     torch::Tensor forward(torch::Tensor x)
     {
-        x = x.view({-1, 9});                    // n * max_nums_in_pillar *9 -> (n * max_nums_in_pillar) *9
-        x = x.unsqueeze(-1);                    //(n * max_nums_in_pillar) *9 -> (n * max_nums_in_pillar) *9 * 1
-        x = relu->forward(conv[0]->forward(x)); //(n * max_nums_in_pillar) *9 -> (n * max_nums_in_pillar) *64 * 1
-        x = relu->forward(conv[1]->forward(x)); //(n * max_nums_in_pillar) *64 -> (n * max_nums_in_pillar) *128 * 1
-        x = relu->forward(conv[2]->forward(x)); //(n * max_nums_in_pillar) *128 -> (n * max_nums_in_pillar) *512 * 1
+        x = x.view({-1, 9});
+        x = x.unsqueeze(-1);
+        x = relu->forward(conv[0]->forward(x));
+        x = relu->forward(conv[1]->forward(x));
+        x = relu->forward(conv[2]->forward(x));
         x = x.view({-1, Config::max_nums_in_pillar, Config::pillar_feature_dim_out});
         torch::Tensor max_result = x.amax({1}, false);
         return max_result;

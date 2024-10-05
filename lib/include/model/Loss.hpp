@@ -5,7 +5,7 @@
 class Loss : public torch::nn::Module
 {
 public:
-    Loss() : smooth_l1_loss(torch::nn::SmoothL1LossOptions().reduction(torch::kNone).beta(1 / 2.0f)) {}
+    Loss() : smooth_l1_loss(torch::nn::SmoothL1LossOptions().reduction(torch::kNone).beta(1 / 9.0f)) {}
     torch::Tensor forward(std::unordered_map<std::string, at::Tensor> pred,
                           std::unordered_map<std::string, at::Tensor> groundtruth)
     {
@@ -21,7 +21,7 @@ public:
         torch::Tensor &bbox_heading_pred = pred["rot"];
         torch::Tensor &bbox_heading_real = groundtruth["rot"];
 
-        torch::Tensor &mask = groundtruth["validmask"];
+        torch::Tensor &mask = groundtruth["mask"];
         int n_valid = mask.sum().item().toInt();
 
         cls_pred = cls_pred.to(device);
@@ -64,8 +64,8 @@ public:
     }
 
 private:
-    float alpha = 3;
-    float beta = 3;
+    float alpha = 2.0;
+    float beta = 4.0;
     float cls_w = 2, mean_w = 1, dim_w = 1, rot_w = 2;
     torch::nn::SmoothL1Loss smooth_l1_loss;
     torch::Device device = torch::Device(torch::kCUDA);

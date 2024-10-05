@@ -22,7 +22,7 @@ int main(int argc, char **argv)
             if (data && data->size() == batch_size)
             {
                 std::cout << "epoches: " << epoches << "  curr: " << i++ << "  ";
-                denet.Train(*data, 8);
+                denet.Train(*data, 4);
                 if (i % 20 == 0)
                 {
                     denet.SaveModeParamters(model_path);

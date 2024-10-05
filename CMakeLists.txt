@@ -44,3 +44,9 @@ target_link_libraries(demo ${PCL_LIBRARIES} ${catkin_LIBRARIES} ${TORCH_LIBRARIE
 
 add_executable(train demo/train.cpp)
 target_link_libraries(train ${PCL_LIBRARIES} ${catkin_LIBRARIES} ${TORCH_LIBRARIES} model)
+
+add_executable(demo_sub_topic demo/demo_sub_topic.cpp)
+target_link_libraries(demo_sub_topic ${PCL_LIBRARIES} ${catkin_LIBRARIES} ${TORCH_LIBRARIES} model)
+
+# add_executable(show_groundthrust test/show_groundthrust.cpp)
+# target_link_libraries(show_groundthrust ${PCL_LIBRARIES} ${catkin_LIBRARIES} ${TORCH_LIBRARIES} model)
