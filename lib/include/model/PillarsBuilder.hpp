@@ -1,5 +1,3 @@
-// 基于哈希表产生pillar特征
-
 #pragma once
 
 #include <pcl/point_cloud.h>
