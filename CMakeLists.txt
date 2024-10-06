@@ -9,8 +9,6 @@ set(Torch_DIR /home/data/code/catkin_ws/lib/libtorch/share/cmake/Torch)
 find_package(Torch REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
-set(EIGEN3_INCLUDE_DIR "/home/data/code/catkin_ws/lib/eigen-3.4.0")
-
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
