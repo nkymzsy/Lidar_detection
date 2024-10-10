@@ -77,19 +77,12 @@ private:
     Eigen::Matrix<float, 3, 4> P0;
 
     const Eigen::Vector2i image_res_ = {1392, 512};
-
-    bool IsValid(const pcl::PointXYZI &p)
+  
+    bool IsInRoi(const Eigen::Vector3f &point)
     {
-        Eigen::Vector3f uv = P0 * R0_rect * Tr_velo_to_cam_ * p.getVector4fMap();
-        uv = uv / uv(2);
-        return p.x > 0 && uv(0) >= 0 && uv(0) < image_res_(0) && uv(1) >= 0 && uv(1) < image_res_(1);
-    }
-
-    bool IsInRoi(const pcl::PointXYZI &point)
-    {
-        return point.x > Config::roi_x_min && point.x < Config::roi_x_max && point.y > Config::roi_y_min &&
-               point.y < Config::roi_y_max && point.z > Config::roi_z_min && point.z < Config::roi_z_max &&
-               point.getVector3fMap().norm() > 5 && fabs(point.x / point.y) > 1;
+        return point.x() > Config::roi_x_min && point.x() < Config::roi_x_max && point.y() > Config::roi_y_min &&
+               point.y() < Config::roi_y_max && point.z() > Config::roi_z_min && point.z() < Config::roi_z_max &&
+               point.norm() > 5 && fabs(point.x() / point.y()) > 1;
     }
 
     bool readPointCloud(std::string path, DataPair &cloudData)
@@ -107,7 +100,7 @@ private:
                file.read(reinterpret_cast<char *>(&p.z), sizeof(float)) &&
                file.read(reinterpret_cast<char *>(&p.intensity), sizeof(float)))
         {
-            if (IsInRoi(p))
+            if (IsInRoi(p.getVector3fMap()))
             {
                 cloud.push_back(p);
             }
@@ -147,7 +140,10 @@ private:
             {
                 Eigen::Vector3f center =
                     Tr_cam_to_velo.block<3, 3>(0, 0) * Eigen::Vector3f(x, y, z) + Tr_cam_to_velo.block<3, 1>(0, 3);
-                objects.emplace_back(label2Number[type], ry + M_PI / 2, center, Eigen::Vector3f(l, w, h));
+                if (IsInRoi(center))
+                {
+                    objects.emplace_back(label2Number[type], ry + M_PI / 2, center, Eigen::Vector3f(l, w, h));
+                }
             }
         }
 

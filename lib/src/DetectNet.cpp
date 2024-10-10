@@ -196,8 +196,9 @@ void Detector::Infer(CloudType &cloud, std::vector<Object> &objs, float theshold
     heatmap = (heatmap >= max_pooled).toType(torch::kFloat32) * heatmap;
 
     // 3. 提取出满足条件的索引
-    auto car_indexs = torch::nonzero(heatmap[0][0].gt(theshold)).to(torch::kCPU);
-    auto people_indexs = torch::nonzero(heatmap[0][1].gt(theshold)).to(torch::kCPU);
+    float theshold_real = log(theshold / (1 - theshold)); // 推理的时候网络不过SIGMOID 概率要反sigmoid
+    auto car_indexs = torch::nonzero(heatmap[0][0].gt(theshold_real)).to(torch::kCPU);
+    auto people_indexs = torch::nonzero(heatmap[0][1].gt(theshold_real)).to(torch::kCPU);
 
     // 3. 将output中的其他量转移到cpu并从B*C*H*W维度转换为B*H*W*C
     output["center"] = output["center"].permute({0, 2, 3, 1}).to(torch::kCPU);

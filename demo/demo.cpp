@@ -17,7 +17,7 @@ int main(int argc, char **argv)
     ros::Rate loopRate(0.5);
 
     Detector denet(Detector::Mode::INFERENCE);
-    denet.LoadModeParamters("/home/data/code/catkin_ws/temp/60epoches_model.pt");
+    denet.LoadModeParamters("src/pillar_detect/lib/pt/model.pt");
     std::vector<Object> objs;
     while (ros::ok())
     {
@@ -29,7 +29,7 @@ int main(int argc, char **argv)
         objs.clear();
         auto &[cloud, objects] = *data;
         TicToc tic;
-        denet.Infer(cloud, objs, 0.1);
+        denet.Infer(cloud, objs, 0.55);
         tic.toc("whole infer:");
         rosutils::Publish3DBoundingBox(objs, boxPub);
         rosutils::Publish3DBoundingBox(data->second, boxRealPub, 0.5);

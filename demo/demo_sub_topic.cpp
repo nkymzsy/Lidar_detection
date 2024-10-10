@@ -23,7 +23,7 @@ public:
         objs.clear();
         cloud.clear();
         pcl::fromROSMsg(*cloud_msg, cloud);
-        denet_.Infer(cloud, objs, 0.1);
+        denet_.Infer(cloud, objs, 0.6);
         rosutils::Publish3DBoundingBox(objs, boxPub_);
         rosutils::PublishPointCloud(cloud, cloudPub_);
     }
@@ -36,7 +36,7 @@ int main(int argc, char **argv)
     ros::NodeHandle nh;
 
     Detector denet(Detector::Mode::INFERENCE);
-    denet.LoadModeParamters("/home/data/code/catkin_ws/temp/60epoches_model.pt");
+    denet.LoadModeParamters("src/pillar_detect/lib/pt/model.pt");
     ros::Subscriber sub = nh.subscribe<sensor_msgs::PointCloud2>("/velodyne_points", 10, CloudCallback(nh, denet));
     
     ros::spin();

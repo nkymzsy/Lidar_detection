@@ -21,7 +21,7 @@ public:
     };
 
     Detector(Mode mode = Mode::TRAIN)
-        : mode_(mode), model(), optimizer(model->parameters(), torch::optim::AdamOptions(1e-5))
+        : mode_(mode), model(), optimizer(model->parameters(), torch::optim::AdamOptions(1e-9))
     {
         if (mode == Mode::TRAIN)
             model->train();
